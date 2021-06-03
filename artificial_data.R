@@ -71,11 +71,53 @@ mk_geneModels <- function(genome, nGenes, nExons = "auto", lambda_exons = 30, la
     fwrite(x = f_tbl, file = tmpF, col.names = FALSE, sep = "\t")
     tx_load_bed(tmpF)
 }
-geneAnnot <- mk_geneModels(genome, 5)
 
-mk_geneModels(genome, nGenes = 5)
+geneAnnot <- mk_geneModels(genome, nGenes = 5, lambda_exons = 100)
 
 # Artificial FASTQ data
+
+get_tx_seq <- function(geneAnnot, genome){
+    iGenes <- as.character(geneAnnot$name)
+    iChrs <- as.character(seqnames(geneAnnot))
+    iStrs <- as.character(strand(geneAnnot))
+    iBlocks <- lapply(seq_along(geneAnnot), function(i){
+        S4Vectors::mcols(geneAnnot[i])$blocks %>% txtools:::if_IRangesList_Unlist() %>%
+            IRanges::shift(IRanges::start(geneAnnot[i]) - 1)
+    })
+    seqs <- lapply(seq_along(iGenes), function(i){
+        stringr::str_sub(genome[[iChrs[i]]], start = IRanges::start(iBlocks[[i]]),
+                         end = IRanges::end(iBlocks[[i]])) %>% paste(collapse = "") %>%
+            Biostrings::DNAString()
+    }) %>% DNAStringSet() 
+    lapply(seq_along(iGenes), function(i){
+        if (iStrs[i] == "-") {
+            Biostrings::reverseComplement(seqs[[i]])
+        }else{
+            seqs[[i]]
+        }
+    }) %>% DNAStringSet()
+}
+
+txSeqs <- get_tx_seq(geneAnnot, genome)
+writeLines(as.character(txSeqs), con = "toySeqs.txt")
+writeLines(as.character(genome), con = "toyGenome.txt")
+pairedEnd <- TRUE
+R1_len <- 30
+R2_len <- 30
+lambda_reads <- 100
+0
+
+mk_fastqReads <- function(txSeqs, pairedEnd = TRUE, lambda_reads){
+    nReads <- rpois(length(txSeqs), lambda = lambda_reads)
+    # rnbinom(length(txSeqs), size = 100, prob = 0.5)
+    lapply(nExons, function(x) rpois(n = x, lambda = lambda_exons))
+    R1_len
+    R2_len
+}
+
+genPEread
+
+
 library(insect)
 ?insect::writeFASTQ()
 # Map using subread
@@ -101,3 +143,15 @@ x <- qfilter(x, minlength = 250, maxlength = 350)
 writeFASTQ(x, file = paste0(td, "/COI_sample2_filtered.fastq"))
 writeFASTA(x, file = paste0(td, "/COI_sample2_filtered.fasta"))
 
+
+
+## Toy objects for check
+set.seed(100)
+toyGenome <- mk_genome(1000)
+toyGAnnot <- mk_geneModels(toyGenome, 3, nExons = c(1,2,3), lambda_introns = 50, lambda_exons = 100)
+toyTxSeqs <- get_tx_seq(genome = toyGenome, geneAnnot = toyGAnnot)
+writeLines(as.character(toyGenome), con = "toyGenome.txt")
+writeLines(as.character(toyGenome), con = "toyGenome.txt")
+writeLines(as.character(toyTxSeqs), con = "toySeqs.txt")
+writeLines(as.character(Biostrings::reverseComplement(toyTxSeqs)), con = "toySeqs_revComp.txt")
+writeLines(as.character(Biostrings::reverseComplement(toyGenome)), con = "toyGeno_revComp.txt")
